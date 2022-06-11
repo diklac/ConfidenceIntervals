@@ -19,10 +19,11 @@ plt.rcParams.update({'font.size': 22})
 mu = 42.0
 sigma = 5.0
 n_samples = 20
-n_partition = 10
+n_partition = int(np.floor(0.5*n_samples))
 ci_percentile = 0.95
 line_width = 3
-ci_calc_repeat = 1e2
+ci_calc_repeat = 5e2
+num_bootstrap = 50000
 
 # -----------------------
 # Funcs
@@ -79,7 +80,7 @@ for ii in range(int(ci_calc_repeat)):
 # plot the
 param_not_in_ci = ci_calc_repeat - param_in_ci
 plt.figure()
-plt.bar(['not inside', 'inside'], [param_not_in_ci, param_in_ci], alpha = 0.5)
+plt.bar(['not inside', 'inside'], [param_not_in_ci/ci_calc_repeat, param_in_ci/ci_calc_repeat], alpha = 0.5)
 
     
     
@@ -110,4 +111,39 @@ plt.plot((mu, mu), (np.min(line_idx), np.max(line_idx)), '--', color = 'orange',
 plt.yticks([], [])
 plt.xlabel('weight [g]')
 plt.legend(names)
+
+# -----------------------
+# Parametric Bootstrapping
+# -----------------------
+d0 = mu + sigma*np.random.randn(n_samples)
+# Assuming the data is sampled from a Normal distribution,
+# get the MLE mean and sigma
+mu_MLE = np.mean(d0)
+sigma_MLE = np.sqrt((1.0/n_samples)*np.sum(np.square(d0 - mu_MLE)))
+print('MLE mean %.2f, sigma %.2f' % (mu_MLE, sigma_MLE))
+
+# the bootstrap samples
+bootstrap_estimates = np.zeros((num_bootstrap))
+for ind in range(num_bootstrap):
+    d_bootstrap = mu_MLE + sigma_MLE*np.random.randn(n_samples)
+    mu_bootstrap = np.mean(d_bootstrap)
+    bootstrap_estimates[ind] = mu_bootstrap
+
+# compute and plot the empirical CDF
+x = np.sort(bootstrap_estimates)
+y = np.arange(1, num_bootstrap + 1)/num_bootstrap
+plt.figure()
+plt.scatter(x, y)
+plt.title('Bootstrap Empirical CDF, %d samples' % num_bootstrap)
+plt.xlabel('Bootstrap estimated mean')
+
+# calculate the CI based on the CDF
+ll = 0.5*(1 - ci_percentile)
+ul = 1 - ll
+lind = np.where(y >= ll)[0][0]
+uind = np.where(y >= ul)[0][0]
+ci_bootstrap = [x[lind], x[uind]]
+print('Bootstrap %.2f CI (%f, %f)' % (ci_percentile, ci_bootstrap[0], ci_bootstrap[1]))
+
+plt.show()
         
